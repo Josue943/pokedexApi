@@ -7,8 +7,9 @@ const Specie = mongoose.model(
     egg_groups: {
       type: [String],
     },
-    evolves_from_species: {
+    evolution_chain: {
       type: mongoose.Schema.Types.Number,
+      ref: 'evolutionchain',
     },
   })
 );
