@@ -1,5 +1,7 @@
+require('dotenv').config({ path: __dirname + '/../config/dev.env' });
 const app = require('express')();
-const port = require('config').get('port');
+const port = process.env.PORT;
+
 //db
 require('./db');
 require('./routes')(app);
