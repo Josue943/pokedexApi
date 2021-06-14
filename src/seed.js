@@ -1,5 +1,5 @@
 require('dotenv').config({ path: __dirname + '/../config/dev.env' });
-const axios = require('axios').create({ baseURL: 'https://pokeapi.co/api/v2/' });
+const axios = require('axios').create({ baseURL: 'https://pokeapi.co/api/v2/', validateStatus: () => true });
 const EvolutionChain = require('./models/evolutionChain');
 const mongoose = require('mongoose');
 const Pokemon = require('./models/pokemon');
@@ -28,44 +28,36 @@ const formatSpecieData = ({ egg_groups, id, evolution_chain }) => {
 };
 
 const formatEvolutionData = ({ chain, id }) => {
+  const data = [...chain.evolves_to.map(({ species }) => ({ order: 2, pokemon: species.url.split('/').slice(-2)[0] }))];
+  if (data.length) data.push(...chain.evolves_to[0].evolves_to.map(({ species }) => ({ order: 3, pokemon: species.url.split('/').slice(-2)[0] })));
   return new EvolutionChain({
     _id: id,
-    chain: [
-      { order: 1, pokemon: chain.species.url.split('/').slice(-2)[0] },
-      ...chain.evolves_to.map(({ species }) => ({ order: 2, pokemon: species.url.split('/').slice(-2)[0] })),
-      ...chain.evolves_to[0]?.evolves_to?.map(({ species }) => ({ order: 3, pokemon: species.url.split('/').slice(-2)[0] })),
-    ],
+    chain: [{ order: 1, pokemon: chain.species.url.split('/').slice(-2)[0] }, ...data],
   });
 };
 
 const seed = async () => {
-  try {
-    const quantity = 649; /* 898 475 */
+  const quantity = 649; /* 898 475 */
 
-    await mongoose.connect(process.env.MONGO_URL);
+  await mongoose.connect(process.env.MONGO_URL);
 
-    for (const number of Array.from(Array(quantity).keys())) {
-      const { data } = await axios.get(`pokemon/${number + 1}`);
-      await Pokemon.create(formatPokemonData(data));
-    }
-
-    for (const number of Array.from(Array(475).keys())) {
-      console.log(number);
-      const { data } = await axios.get(`evolution-chain/${number + 1}`);
-      await EvolutionChain.create(formatEvolutionData(data));
-    }
-
-    for (const number of Array.from(Array(quantity).keys())) {
-      console.log(number);
-      const { data } = await axios.get(`pokemon-species/${number + 1}`);
-      await Specie.create(formatSpecieData(data));
-    }
-
-    mongoose.disconnect();
-    console.log('Done');
-  } catch (error) {
-    console.log(error);
+  for (const number of Array.from(Array(quantity).keys())) {
+    const response = await axios.get(`pokemon/${number + 1}`);
+    if (response.status === 200) await Pokemon.create(formatPokemonData(response.data));
   }
+
+  for (const number of Array.from(Array(475).keys())) {
+    const response = await axios.get(`evolution-chain/${number + 1}`);
+    if (response.status === 200) await EvolutionChain.create(formatEvolutionData(response.data));
+  }
+
+  for (const number of Array.from(Array(quantity).keys())) {
+    const response = await axios.get(`pokemon-species/${number + 1}`);
+    if (response.status === 200) await Specie.create(formatSpecieData(response.data));
+  }
+
+  mongoose.disconnect();
+  console.log('Done');
 };
 
 seed();
